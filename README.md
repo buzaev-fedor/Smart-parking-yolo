@@ -1,5 +1,6 @@
 # Smart-parking-yolo
 Программа для анализа свободных и занятых парковочных мест. 
+Основано на Yolo V4.
 ![hippo](https://github.com/buzaev-fedor/Smart-parking-yolo/blob/main/out_test%20(1).gif)
 ## Принцип действия
 1. Чертеж парковки - оператор расчерчивает парковочные места для парковки. 
