@@ -20,6 +20,11 @@
 
 "Плохие места" - это места, которые заняты одной машиной одновременно.
 
-Reference:
+## Что еще хочется сделать:
+1. Дообучить модель на отличных данных.
+2. Перевести в TensorRT.
+3. Сделать Deepstream.
+
+## Reference:
     https://github.com/Tianxiaomo/pytorch-YOLOv4
     https://github.com/AlexeyAB/darknet
