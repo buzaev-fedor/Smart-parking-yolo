@@ -35,7 +35,7 @@ class_names = load_class_names(names_file)
 class ParkingDetector:
     # здесь подается ссылка на rtsp поток
     def __init__(self):
-        video_source = "rtsp://test:jrqoDUAU5o@194.186.3.122:7792"
+        video_source = ""
         rtsp_latency = 20
         g_stream = f"rtspsrc location={video_source} latency={rtsp_latency} ! decodebin ! videoconvert ! appsink"
         start = time.time()
