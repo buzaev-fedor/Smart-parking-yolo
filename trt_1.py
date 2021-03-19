@@ -23,6 +23,7 @@ from flask import Flask, Response
 print(cv2.__version__)
 print(cv2.getBuildInformation())
 
+
 """Инициализая класса видеопотока"""
 class ParkingDetector:
     # здесь подается ссылка на rtsp поток
@@ -62,7 +63,7 @@ class ParkingDetector:
     def get_frame(self):
         self.success, self.frame = self.video.read()
         while self.success:
-            self.frame = cv2.resize(self.frame, (int(self.frame.shape[1]//2.4), int(self.frame.shape[0]//2.4)))
+            self.frame = cv2.resize(self.frame, (int(self.frame.shape[1] // 2.4), int(self.frame.shape[0] // 2.4)))
             self.cropped_frame = self.frame[self.start_row:self.end_row, self.start_col:self.end_col]
             return cv2.imencode('.jpg', self.flow())[1].tobytes()
 
@@ -76,7 +77,7 @@ class ParkingDetector:
             height, width = self.cropped_frame.shape[0], self.cropped_frame.shape[1]
             start_time = time.time()
             self.cropped_frame = old_detect(self.cropped_frame, height, width, 80, self.context, self.buffers)
-            fps = 1/(time.time() - start_time)
+            fps = 1 / (time.time() - start_time)
             self.frame[self.start_row: self.start_row + height,
             self.start_col: self.start_col + width] = self.cropped_frame
             self.tmp = self.frame
@@ -88,9 +89,8 @@ class ParkingDetector:
             return self.tmp
 
 
-
 def GiB(val):
-    return val*1 << 30
+    return val * 1 << 30
 
 
 def find_sample_data(description="Runs a TensorRT Python sample", subfolder="", find_files=[]):
@@ -159,7 +159,7 @@ def allocate_buffers(engine, batch_size):
     stream = cuda.Stream()
     for binding in engine:
 
-        size = trt.volume(engine.get_binding_shape(binding))*batch_size
+        size = trt.volume(engine.get_binding_shape(binding)) * batch_size
         dims = engine.get_binding_shape(binding)
 
         # in case batch dimension is -1 (dynamic)
@@ -230,7 +230,6 @@ def get_engine(engine_path):
         return runtime.deserialize_cuda_engine(f.read())
 
 
-
 def old_detect(frame, height, width, num_classes, context, buffers):
     overlay = frame.copy()
     ta = time.time()
@@ -264,11 +263,10 @@ def old_detect(frame, height, width, num_classes, context, buffers):
     tb = time.time()
 
     print('-----------------------------------')
-    print('    TRT inference time: %f'%(tb - ta))
+    print('    TRT inference time: %f' % (tb - ta))
     print('-----------------------------------')
 
     boxes = post_processing(sized, 0.4, 0.6, trt_outputs)
-
 
     """функция, где берется ббокс и координата середин машин"""
     car_box, center_car_box = car_boxes(boxes, height, width)
@@ -320,8 +318,6 @@ def old_detect(frame, height, width, num_classes, context, buffers):
     return np.array(result_frame)
 
 
-
-
 def detect(context, buffers, image_src, image_size, num_classes):
     IN_IMAGE_H, IN_IMAGE_W = image_size
 
@@ -350,7 +346,7 @@ def detect(context, buffers, image_src, image_size, num_classes):
     tb = time.time()
 
     print('-----------------------------------')
-    print('    TRT inference time: %f'%(tb - ta))
+    print('    TRT inference time: %f' % (tb - ta))
     print('-----------------------------------')
 
     boxes = post_processing(img_in, 0.4, 0.6, trt_outputs)
