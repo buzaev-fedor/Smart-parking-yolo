@@ -1,3 +1,4 @@
+import numpy as np
 from tool.utils import *
 from tool.torch_utils import *
 from tool.darknet2pytorch import Darknet
@@ -6,8 +7,8 @@ from functions import *
 import cv2
 import time
 from time import ctime
-from flask import Flask, Response
-
+from queue import Queue
+from flask import Flask, Response, render_template
 
 print(cv2.__version__)
 print(cv2.getBuildInformation())
@@ -16,26 +17,26 @@ print(cv2.getBuildInformation())
 m = Darknet(cfg_file)
 m.print_network()
 m.load_weights(weight_file)
-print('Loading weights from %s... Done!'%(weight_file))
+print('Loading weights from %s... Done!' % (weight_file))
 if use_cuda:
     m.cuda()
 
 num_classes = m.num_classes
-if num_classes == 20:
-    names_file = 'data/voc.names'
-elif num_classes == 80:
+if num_classes == 80:
     names_file = 'data/coco.names'
 else:
-    names_file = 'data/x.names'
+    names_file = 'data/car.names'
 
 class_names = load_class_names(names_file)
+# q = Queue(maxsize=6)
+
+"""Инициализация первого класса"""
 
 
-"""Инициализая класса видеопотока"""
-class ParkingDetector:
+class FirstParkingDetector:
     # здесь подается ссылка на rtsp поток
     def __init__(self):
-        video_source = ""
+        video_source = "rtsp://test:jrqoDUAU5o@194.186.3.122:7792"
         rtsp_latency = 20
         g_stream = f"rtspsrc location={video_source} latency={rtsp_latency} ! decodebin ! videoconvert ! appsink"
         start = time.time()
@@ -67,7 +68,7 @@ class ParkingDetector:
     def get_frame(self):
         self.success, self.frame = self.video.read()
         while self.success:
-            self.frame = cv2.resize(self.frame, (int(self.frame.shape[1]//2.4), int(self.frame.shape[0]//2.4)))
+            self.frame = cv2.resize(self.frame, (int(self.frame.shape[1] // 2.4), int(self.frame.shape[0] // 2.4)))
             self.cropped_frame = self.frame[self.start_row:self.end_row, self.start_col:self.end_col]
             return cv2.imencode('.jpg', self.flow())[1].tobytes()
 
@@ -81,12 +82,74 @@ class ParkingDetector:
             height, width = self.cropped_frame.shape[0], self.cropped_frame.shape[1]
             start_time = time.time()
             self.cropped_frame = detect(self.cropped_frame, height, width)
-            fps = 1/(time.time() - start_time)
+            fps = 1 / (time.time() - start_time)
             self.frame[self.start_row: self.start_row + height,
             self.start_col: self.start_col + width] = self.cropped_frame
             self.tmp = self.frame
             self.tracker = 0
-            print(f"Time: {ctime(start_time)} FPS : {fps}")
+            print(f"Time: {ctime(start_time)} FPS first flow : {fps}")
+            return self.frame
+        else:
+            self.tracker += 1
+            return self.tmp
+
+
+"""Инициализация второго класса"""
+class SecondParkingDetector:
+    # здесь подается ссылка на rtsp поток
+    def __init__(self):
+        video_source = "rtsp://test:jrqoDUAU5o@194.186.3.122:7792"
+        rtsp_latency = 25
+        g_stream = f"rtspsrc location={video_source} latency={rtsp_latency} ! decodebin ! videoconvert ! appsink"
+        start = time.time()
+        self.video = cv2.VideoCapture(g_stream, cv2.CAP_GSTREAMER)
+        self.success, self.frame = self.video.read()
+        """ здесь мы выбираем только часть фрейма и детектим только на этой части"""
+        self.start_row = int(250)
+        self.start_col = int(90)
+        self.end_row = int(650)
+        self.end_col = int(970)
+        self.cropped_frame = self.frame[self.start_row:self.end_row, self.start_col:self.end_col]
+        self.width, self.height = self.cropped_frame.shape[0], self.cropped_frame.shape[1]
+        """Эти константы нужны, чтобы поток видео шел в real-time"""
+        self.tracker = 6
+        self.target = 6
+        self.tmp = np.array([])
+        self.time_list = []
+        self.time_list.append(start)
+        if not self.video.isOpened():
+            print("Could not open feed")
+
+    def __del__(self):
+        self.video.release()
+
+    """читаем видео, уменьшаем его и детектим. фун-я flow берет первый кадр, 
+    отсчитывает итерации и берет следующий кадр
+    """
+
+    def get_frame(self):
+        self.success, self.frame = self.video.read()
+        while self.success:
+            self.frame = cv2.resize(self.frame, (int(self.frame.shape[1] // 2.4), int(self.frame.shape[0] // 2.4)))
+            self.cropped_frame = self.frame[self.start_row:self.end_row, self.start_col:self.end_col]
+            return cv2.imencode('.jpg', self.flow())[1].tobytes()
+
+    """
+    функция, которая берет первый попавшийся кадр, прогоняет его через детекцию, а потом сохраняет его в озу и
+    показывает дальше, когда переменная tracker итерируется
+    """
+
+    def flow(self):
+        if self.tracker == self.target:
+            height, width = self.cropped_frame.shape[0], self.cropped_frame.shape[1]
+            start_time = time.time()
+            self.cropped_frame = detect(self.cropped_frame, height, width)
+            fps = 1 / (time.time() - start_time)
+            self.frame[self.start_row: self.start_row + height,
+            self.start_col: self.start_col + width] = self.cropped_frame
+            self.tmp = self.frame
+            self.tracker = 0
+            print(f"Time: {ctime(start_time)} FPS second flow : {fps}")
             return self.frame
         else:
             self.tracker += 1
@@ -156,6 +219,9 @@ def detect(frame, height, width):
 
 app = Flask(__name__)
 
+global track_feed
+track_feed = 0
+
 
 def gen(feed):
     while True:
@@ -164,12 +230,29 @@ def gen(feed):
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
 
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(gen(ParkingDetector()), mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route("/")
+def index():
+    # фласк вовзращает наш темплейт
+    return render_template("index.html")
 
 
+@app.route('/video_feed_1')
+def video_feed_1():
+    global track_feed
+    if track_feed == 0:
+        track_feed = 1
+        return Response(gen(FirstParkingDetector()), mimetype='multipart/x-mixed-replace; boundary=frame')
+    else:
+        pass
+
+
+@app.route('/video_feed_2')
+def video_feed_2():
+    global track_feed
+    if track_feed == 1:
+        track_feed = 0
+        return Response(gen(SecondParkingDetector()), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', threaded=True, use_reloader=False)

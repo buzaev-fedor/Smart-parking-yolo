@@ -26,14 +26,14 @@ def car_boxes(boxes, height, width):
 def compute_overlaps(car_box, center_car_box):
     overlaps = np.zeros((len(dict_parked_car_places), len(car_box)))
     bad_car_places_id = np.array([])
-    """В следующей строке я нахожу центральную точку ббокса и увеличиваю ее в 265 раз(подобранный элемент)"""
     for num in range(len(car_box)):
         """Выделяется полигон машины"""
         polygon_2 = Polygon(car_box[num])
         """Здесь я уменьшаю координаты объекта по x и y"""
         polygon_2 = shapely.affinity.scale(polygon_2, xfact=0.6, yfact=0.5, origin='center')
-        """Нахожу координату центра ббокса и ищу ближайших соседей"""
+        """В следующей строке я нахожу центральную точку ббокса и увеличиваю ее в 100 раз(подобранный элемент)"""
         car_box_point = Point(center_car_box[num][0], center_car_box[num][1]).buffer(100)
+        """Нахожу координату центра ббокса и ищу ближайших соседей, а затем добавляю их в список координат"""
         nearest_coord = ([o.wkt for o in tree_coord_place.query(car_box_point) if o.intersects(car_box_point)])
         coord_list = []
         for point in nearest_coord:
@@ -70,3 +70,6 @@ def compute_overlaps(car_box, center_car_box):
                         overlaps[nearest_id][num] = IOU
 
     return np.array(overlaps), bad_car_places_id
+
+
+
